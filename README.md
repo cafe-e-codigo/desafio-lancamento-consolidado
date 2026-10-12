@@ -1,4 +1,4 @@
-# Verety: Controle de Lançamentos e Saldo Diário Consolidado
+# Controle de Lançamentos e Saldo Diário Consolidado
 
 Dois serviços para o comerciante registrar lançamentos de débito/crédito e consultar o saldo diário consolidado, desenhados para resistir à queda do lado de leitura e sustentar picos de 50 req/s.
 

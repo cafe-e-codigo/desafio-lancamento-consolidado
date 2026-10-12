@@ -1,0 +1,34 @@
+# Verety: build/IDE artifacts (nada de artefato de build no repo)
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Python
+__pycache__/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.bkp
+*~
+
+# Eclipse (m2e) e artefatos JVM
+bin/
+.project
+.classpath
+.settings/
+*.class
+
+# Logs / temporários
+*.log
+logs/
+
+# Sistema
+.DS_Store
+
+# Segredos locais (nunca versionar): o compose usa .env, que NÃO entra.
+.env
+*.env.local

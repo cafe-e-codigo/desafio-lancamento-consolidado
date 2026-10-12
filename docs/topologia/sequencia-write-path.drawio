@@ -1,0 +1,65 @@
+<mxfile host="app.diagrams.net" modified="2026-10-08T00:00:00.000Z" version="24.0.0" type="device">
+  <diagram id="seq-write-path" name="Sequência: Write Path (POST→outbox→relay→broker→consumidor→saldo)">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Verety: Sequência do Write Path · POST /api/v1/lancamentos (RNF#1: 201 no COMMIT; broker fora do caminho)"
+                style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="0" width="1320" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l1" value="Comerciante" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="API / Serviço Lançamentos" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="210" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="Postgres: lancamento + outbox" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="380" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="OutboxRelay (interno)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="550" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" value="RabbitMQ (quorum)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="720" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l6" value="Consumidor Consolidado" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="890" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l7" value="Postgres: processed_event (ledger) + saldo_diario" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="l8" value="Redis (cache read-through)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="40" width="130" height="760" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="1: POST /api/v1/lancamentos (Idempotency-Key)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.092;entryX=0;entryY=0.092;fontSize=11;" edge="1" parent="1" source="l1" target="l2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m2" value="2: BEGIN · INSERT lancamento + outbox(PENDING)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.158;entryX=0;entryY=0.158;fontSize=11;" edge="1" parent="1" source="l2" target="l3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m3" value="3: COMMIT" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=1 4;exitX=0;exitY=0.217;entryX=1;entryY=0.217;fontSize=11;" edge="1" parent="1" source="l3" target="l2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m4" value="4: 201 Created (Location), só após o COMMIT" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=1 4;exitX=0;exitY=0.276;entryX=1;entryY=0.276;fontSize=11;fontColor=#1f6f1f;" edge="1" parent="1" source="l2" target="l1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="m5" value="5: poll, SELECT … FOR UPDATE SKIP LOCKED" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=0;exitY=0.368;entryX=1;entryY=0.368;fontSize=11;" edge="1" parent="1" source="l4" target="l3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m6" value="6: publish · mandatory=true · delivery_mode=2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.447;entryX=0;entryY=0.447;fontSize=11;" edge="1" parent="1" source="l4" target="l5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m7" value="7: publisher confirm (por delivery_tag)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=1 4;exitX=0;exitY=0.513;entryX=1;entryY=0.513;fontSize=11;" edge="1" parent="1" source="l5" target="l4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m8" value="8: UPDATE outbox status=PUBLISHED" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=0;exitY=0.579;entryX=1;entryY=0.579;fontSize=11;" edge="1" parent="1" source="l4" target="l3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="m9" value="9: deliver (prefetch=10, ack manual)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.671;entryX=0;entryY=0.671;fontSize=11;" edge="1" parent="1" source="l5" target="l6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m10" value="10: INSERT processed_event ON CONFLICT (event_id,data) DO NOTHING, marker e incremento (1 TX)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.75;fontSize=11;" edge="1" parent="1" source="l6" target="l7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m11" value="11: ack, só após COMMIT" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=1 4;exitX=0;exitY=0.816;entryX=1;entryY=0.816;fontSize=11;" edge="1" parent="1" source="l6" target="l5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m12" value="12: rollup micro-batch → saldo_diario (1 UPDATE/{comerciante,data}/janela)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;exitX=1;exitY=0.895;entryX=0;entryY=0.895;fontSize=11;" edge="1" parent="1" source="l6" target="l7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m13" value="13: GET /api/v1/consolidado, read-through + single-flight" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=1 4;exitX=1;exitY=0.947;entryX=0;entryY=0.947;fontSize=11;" edge="1" parent="1" source="l7" target="l8"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="note1" value="ALT: broker/down (RNF#1): o passo 6 falha → o item de outbox fica PENDING e é reprocessado com backoff (next_attempt). O passo 4 (201) JÁ ocorreu → o POST não fica indisponível. Nada se perde (at-least-once)."
+                style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;align=left;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="830" width="560" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="note2" value="Dedup: event_id = UUIDv5(NS_VERETY_LANCAMENTO, Idempotency-Key), determinístico (ADR-005); preservado no relay, no consumidor e no redrive da DLQ. Duplicata do broker = no-op."
+                style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#d5e8d4;strokeColor=#82b366;align=left;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="830" width="560" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

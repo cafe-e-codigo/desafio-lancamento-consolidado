@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Verety: parent Maven (multi-módulo).
+  Estrutura: common (lib compartilhada) · lancamentos (write-side) · consolidado (read-side).
+  Stack pinada: Java 21 (LTS) · Spring Boot 3.3.x · Postgres 16 (Flyway) · RabbitMQ · Redis 7.
+  Fonte de verdade do desenho: docs/especificacao-tecnica.md + docs/adr/ (ADR-001 a ADR-004).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.verety</groupId>
+    <artifactId>verety</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>verety</name>
+    <description>Controle de lançamentos + saldo diário consolidado (CQRS · outbox · mensageria).</description>
+
+    <modules>
+        <module>common</module>
+        <module>lancamentos</module>
+        <module>consolidado</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Testcontainers (test scope). Sobreponível por -Dtestcontainers.version. -->
+        <testcontainers.version>1.20.4</testcontainers.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Módulo interno compartilhado; versão herdada do parent. -->
+            <dependency>
+                <groupId>com.verety</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- BOM Testcontainers: versiona junit-jupiter/postgresql/rabbitmq/testcontainers. -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!--
+      Testes de integração (Testcontainers). O surefire padrão só pega *Test; aqui estende para
+      *IT/*ITCase, de modo que `mvn test`/`verify` rodem a suíte de integração (Postgres/Rabbit via
+      containers). `mvn -DskipTests package` continua produzindo o artefato sem rodar testes.
+    -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/*IT.java</include>
+                        <include>**/*ITCase.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

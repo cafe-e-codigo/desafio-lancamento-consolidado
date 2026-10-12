@@ -1,0 +1,18 @@
+# Verety: Segurança de consumo (ADR-008). Serviço: consolidado.
+# Perfil: ative com SPRING_PROFILES_ACTIVE=...,security (as chaves abaixo só valem nesse perfil;
+# os @Value têm default seguro para rodar sem o perfil).
+#
+# Segredo: NUNCA literal aqui. VERETY_JWT_HMAC_SECRET é provisionado por variável de ambiente
+# (Secrets Manager no Alvo, item 3 do ADR-008); tratado por nome de variável de ambiente, nunca lido nem colado no código.
+verety:
+  security:
+    jwt:
+      issuer: ${VERETY_JWT_ISSUER:}
+      audience: ${VERETY_JWT_AUDIENCE:}
+      algorithms: ${VERETY_JWT_ALGORITHMS:HS256,RS256}
+      scope-claim: ${VERETY_JWT_SCOPE_CLAIM:scope}
+      merchant-claim: ${VERETY_JWT_MERCHANT_CLAIM:merchant_id}
+      hmac-secret: ${VERETY_JWT_HMAC_SECRET:}
+      public-key-pem: ${VERETY_JWT_PUBLIC_KEY_PEM:}
+    # Ponte pragmática p/ o harness: em 'test' o SecurityConfig libera tudo; mantenha false fora de test.
+    test-bypass: ${VERETY_SECURITY_TEST_BYPASS:false}

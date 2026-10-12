@@ -1,0 +1,59 @@
+# Verety: Serviço de Consolidado (read-side, CQRS)
+# Base de infraestrutura; as chaves de negócio vêm nos perfis abaixo.
+# Nada de literal sensível: tudo por variável de ambiente (coerente com o docker-compose).
+spring:
+  application:
+    name: verety-consolidado
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/verety}
+    username: ${SPRING_DATASOURCE_USERNAME:verety}
+    password: ${SPRING_DATASOURCE_PASSWORD:verety}
+    hikari:
+      pool-name: consolidado-pool
+      maximum-pool-size: ${SPRING_DATASOURCE_POOL_MAX:10}
+
+  jpa:
+    # Postgres é a fonte de verdade (saldo_diario); o schema é gerido por Flyway.
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    # Desligado por padrão no read-side para não disputar a migração com o write-side;
+    # o schema canônico é aplicado por um único ponto (habilitável por env).
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:verety}
+    password: ${SPRING_RABBITMQ_PASSWORD:verety}
+    listener:
+      simple:
+        # ack só após COMMIT no ledger (ADR-004/ADR-007); a política de retry/quorum é do eixo Mensageria.
+        acknowledge-mode: manual
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:2s}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

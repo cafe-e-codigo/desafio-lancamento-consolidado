@@ -1,0 +1,11 @@
+# Verety: contexto de build enxuto (contexto = raiz do repo).
+**/target/
+.git/
+.gitignore
+.idea/
+*.iml
+.vscode/
+*.log
+.env
+*.env.local
+README.md

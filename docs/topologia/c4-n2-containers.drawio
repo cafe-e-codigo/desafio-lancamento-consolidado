@@ -1,0 +1,120 @@
+<mxfile host="drawio-plugin" modified="2026-10-12T02:08:38.727Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" version="22.1.22" etag="CqKKhNjqEOPwSrvKr2iN" type="embed">
+  <diagram name="C4-N2-Containers" id="verety-c4-n2">
+    <mxGraphModel dx="3459" dy="1041" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n2-title" value="Verety: C4 Nível 2 (Containers)" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="-1300" y="10" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-legend" value="Sem frontend (moldura) · Java · DLQ e Outbox presentes · direção serviço→recurso. Correções canônicas: outbox SKIP LOCKED, 1 SQL ON CONFLICT (event_id,data), Redis read-through+single-flight, mensageria quorum/retry+DLQ." style="text;html=1;fontSize=11;align=left;verticalAlign=top;fontColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="-1300" y="42" width="1100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-boundary" value="Sistema Verety (VPC AWS)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#666666;dashed=1;dashPattern=8 4;fontSize=16;fontStyle=1;align=center;verticalAlign=top;spacing=10;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="-1500" y="110" width="1760" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-comerciante" value="&lt;b&gt;Comerciante&lt;/b&gt;&lt;div&gt;[Person]&lt;/div&gt;" style="shape=mxgraph.c4.person2;html=1;whiteSpace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#ffffff;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="-1440" y="170" width="160" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-waf" value="&lt;b&gt;AWS WAF&lt;/b&gt;&lt;div&gt;[Container: borda]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;OWASP, rate-limit por IP, DDoS.&lt;br&gt;Quota por chamador = config (não nó).&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-1170" y="185" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-alb" value="&lt;b&gt;Application Load Balancer&lt;/b&gt;&lt;div&gt;[Container: borda]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;HTTPS/TLS 1.3; roteia /lancamentos e /consolidado.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-710" y="186" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-lanc" value="&lt;b&gt;Serviço de Lançamentos&lt;/b&gt;&lt;div&gt;[Container: Java / Spring Boot]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Write side (CQRS). Valida e grava lancamento+outbox na MESMA tx; 201 no COMMIT.&lt;br&gt;Contém o &lt;b&gt;OutboxRelay&lt;/b&gt; (@Scheduled, SKIP LOCKED).&lt;br&gt;Idempotency-Key→event_id.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-1390" y="420" width="280" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-cons" value="&lt;b&gt;Serviço de Consolidado&lt;/b&gt;&lt;div&gt;[Container: Java / Spring Boot]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Read side (CQRS). Consome evento; &lt;b&gt;1 SQL ON CONFLICT (event_id,data)&lt;/b&gt; no ledger processed_event (dedup+incremento na mesma linha); rollup→saldo_diario (&lt;b&gt;só o rollup escreve o saldo&lt;/b&gt;).&lt;br&gt;a c k só após COMMIT.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-390" y="540" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-db" value="&lt;b&gt;Aurora PostgreSQL&lt;/b&gt;&lt;div&gt;[Container: Database]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Fonte de verdade. Schemas:&lt;br&gt;&lt;b&gt;lancamentos&lt;/b&gt; (lancamento + &lt;b&gt;outbox&lt;/b&gt;) · &lt;b&gt;consolidado&lt;/b&gt; (ledger processed_event, saldo_diario, descarte_logado).&lt;br&gt;Zero FK cross-schema.&lt;/div&gt;" style="shape=cylinder3;boundedLbl=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="-1390" y="810" width="280" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-redis" value="&lt;b&gt;ElastiCache for Redis&lt;/b&gt;&lt;div&gt;[Container: Cache]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Cache DERIVADO do saldo (read-through + single-flight). Nunca fonte de verdade.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-40" y="800" width="250" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-mq" value="&lt;b&gt;Amazon MQ for RabbitMQ&lt;/b&gt;&lt;div&gt;[Container: Message Broker]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;exchange caixa.lancamentos.exchange → consolidado-processamento-queue (quorum).&lt;br&gt;+ consolidado-retry-queue (TTL+DLX) + &lt;b&gt;DLQ&lt;/b&gt; (consolidado-processamento-dlq).&lt;br&gt;delivery_mode=2; mandatory; overflow=reject-publish.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#8C8496;strokeColor=#736782;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-920" y="660" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="n2-obs" value="&lt;b&gt;CloudWatch / X-Ray / CloudTrail&lt;/b&gt;&lt;div&gt;[External System]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Alarmes: idade do outbox, PENDING/FAILED, backlog/idade, connection.blocked, ACU, perda do consolidado.&lt;/div&gt;" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#8C8496;strokeColor=#736782;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="-80" y="170" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-waf" value="Usa [HTTPS]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-comerciante" target="n2-waf" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-waf-alb" value="Filtra/rate-limit" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-waf" target="n2-alb" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-alb-lanc" value="POST /lancamentos [HTTP]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-alb" target="n2-lanc" edge="1">
+          <mxGeometry x="-0.3923" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-640" y="370" />
+              <mxPoint x="-1250" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-alb-cons" value="GET /consolidado?data= [HTTP]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-alb" target="n2-cons" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-270" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-lanc-db" value="Transação: lancamento + outbox [SQL/JDBC]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-lanc" target="n2-db" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-1200" y="870" />
+              <mxPoint x="-1200" y="870" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-relay-mq" value="Relay publica evento [AMQP] (mandatory, delivery_mode=2)" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-lanc" target="n2-mq" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-770" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-mq-cons" value="Consome evento [AMQP] (ack pós-COMMIT)" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-mq" target="n2-cons" edge="1">
+          <mxGeometry x="-0.0725" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="-450" y="745" />
+              <mxPoint x="-450" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-cons-db" value="1 SQL ON CONFLICT (event_id,data) + rollup [SQL/JDBC]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-cons" target="n2-db" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-240" y="895" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-cons-redis" value="Read-through + single-flight [RESP]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" parent="1" source="n2-cons" target="n2-redis" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="35" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-lanc-obs" value="Métricas/traces [HTTPS]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" parent="1" source="n2-lanc" target="n2-obs" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="70" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-cons-obs" value="Métricas/traces [HTTPS]" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" parent="1" source="n2-cons" target="n2-obs" edge="1">
+          <mxGeometry x="-0.2145" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-140" y="330" />
+              <mxPoint x="-140" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

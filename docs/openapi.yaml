@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: "Verety: Controle de Lançamentos e Consolidado Diário"
+  version: 1.0.0
+  description: |
+    Contrato de escrita e leitura do Verety.
+    Materializa o ADR-005.
+
+    Princípios:
+    - Prefixo versionado único `/api/v1` (fica na `servers[].url`); alinhado à spec (`RF01/RF04`) e ao teste de carga.
+    - `POST /api/v1/lancamentos` exige `Idempotency-Key`; `event_id = UUIDv5(NS_VERETY_LANCAMENTO, Idempotency-Key)` (determinístico).
+    - O `201` sai no COMMIT do Postgres (outbox transacional, ADR-003); o broker NÃO está no caminho da request (RNF#1).
+    - Dinheiro é `string` decimal com 2 casas (`numeric(18,2)` no banco), nunca float.
+    - Erros seguem RFC 9457 (`application/problem+json`).
+  contact:
+    name: José Airton
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local (docker-compose), proxy semântico do Alvo. A base inclui o prefixo versionado `/api/v1` (ADR-008).
+  - url: https://api.verety.example/api/v1
+    description: Alvo (AWS), capacidade e alta disponibilidade não são provadas localmente.
+
+tags:
+  - name: lancamentos
+    description: Escrita idempotente de débitos e créditos
+  - name: consolidado
+    description: Leitura do saldo diário consolidado
+
+paths:
+  /lancamentos:
+    post:
+      tags: [lancamentos]
+      summary: Registra um lançamento (débito ou crédito)
+      operationId: criarLancamento
+      description: |
+        Idempotente por `Idempotency-Key`. Mesma key + mesmo corpo ⇒ replay (`200`).
+        Mesma key + corpo diferente ⇒ `409`. Ver ADR-005.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LancamentoRequest'
+            examples:
+              credito:
+                summary: Crédito de R$ 150,00
+                value: { comerciante_id: "com-1", tipo: "CREDITO", valor: "150.00", moeda: "BRL", data_negocio: "2026-10-08" }
+              debito:
+                summary: Débito de R$ 42,50
+                value: { comerciante_id: "com-1", tipo: "DEBITO", valor: "42.50", moeda: "BRL", data_negocio: "2026-10-08" }
+      responses:
+        '201':
+          description: Lançamento aceito e persistido (outbox PENDING). O evento é publicado de forma assíncrona.
+          headers:
+            Location:
+              description: URI do recurso criado
+              schema: { type: string, format: uri }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lancamento' }
+        '200':
+          description: Replay idempotente (mesma `Idempotency-Key` e mesmo corpo); nenhum novo efeito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lancamento' }
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '409':
+          description: Reuso de `Idempotency-Key` com corpo diferente (`idempotency_key_reuse`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: "https://verety.example/problems/idempotency-key-reuse", title: "Idempotency-Key reuse", status: 409, detail: "A mesma Idempotency-Key foi usada com payload diferente." }
+        '422':
+          $ref: '#/components/responses/Problem422'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+
+  /consolidado/{comerciante_id}:
+    get:
+      tags: [consolidado]
+      summary: Consulta o saldo consolidado de um comerciante numa data
+      operationId: obterConsolidado
+      description: |
+        Leitura via cache read-through + single-flight (ADR-006); a verdade é `consolidado.saldo_diario` no Postgres.
+        A `data` é de negócio (event-time), não o instante de consumo.
+      parameters:
+        - name: comerciante_id
+          in: path
+          required: true
+          schema: { type: string, example: "com-1" }
+        - name: data
+          in: query
+          required: false
+          description: |
+            Data de negócio (calendário do comerciante, ISO-8601 `YYYY-MM-DD`, TZ `America/Sao_Paulo`).
+            Opcional; o default é hoje na TZ do negócio (ADR-012). É chave de leitura de
+            `consolidado.saldo_diario` (`PK (comerciante_id, data)`), não o instante de consumo.
+          schema: { type: string, format: date }
+          example: "2026-10-08"
+      responses:
+        '200':
+          description: Saldo consolidado da data.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consolidado' }
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '404':
+          description: Sem lançamentos para a data (saldo zero não materializado).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Chave de idempotência gerada pelo cliente (UUID/ULID), uma por operação lógica.
+        O servidor deriva `event_id = UUIDv5(NS_VERETY_LANCAMENTO, Idempotency-Key)` (ADR-005).
+        Reuso com corpo diferente ⇒ `409`.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+      example: "9f1c2b7a-0d3e-4c5f-9a10-8b6d2e4f7c11"
+
+  schemas:
+    Problema:
+      type: object
+      description: RFC 9457 Problem Details
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer, minimum: 100, maximum: 599 }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+      required: [type, title, status]
+      additionalProperties: true
+    Problem:
+      $ref: '#/components/schemas/Problema'
+
+    LancamentoRequest:
+      type: object
+      additionalProperties: false
+      required: [comerciante_id, tipo, valor, moeda, data_negocio]
+      properties:
+        comerciante_id:
+          type: string
+          description: Identificador do comerciante (mono-comerciante hoje; coluna de primeira classe para forward-compat).
+          example: "com-1"
+        tipo:
+          type: string
+          enum: [CREDITO, DEBITO]
+        valor:
+          type: string
+          description: Decimal positivo com 2 casas (string, nunca number ou float).
+          pattern: '^[0-9]{1,16}\.[0-9]{2}$'
+          example: "150.00"
+        moeda:
+          type: string
+          enum: [BRL]
+          default: BRL
+        data_negocio:
+          type: string
+          format: date
+          description: Data de negócio (event-time) à qual o lançamento pertence; define o bucket diário.
+          example: "2026-10-08"
+
+    Lancamento:
+      type: object
+      required: [lancamento_id, event_id, comerciante_id, tipo, valor, moeda, data_negocio, status, criado_em]
+      properties:
+        lancamento_id: { type: string, format: uuid }
+        event_id:
+          type: string
+          format: uuid
+          description: Derivado deterministicamente da Idempotency-Key (UUIDv5). Estável no relay, no consumidor e no redrive.
+        comerciante_id: { type: string }
+        tipo: { type: string, enum: [CREDITO, DEBITO] }
+        valor: { type: string, pattern: '^[0-9]{1,16}\.[0-9]{2}$' }
+        moeda: { type: string, enum: [BRL] }
+        data_negocio: { type: string, format: date }
+        status:
+          type: string
+          description: "Estado do lançamento (fonte: Postgres)."
+          enum: [PENDENTE, PUBLICADO]
+        criado_em: { type: string, format: date-time }
+
+    Consolidado:
+      type: object
+      required: [comerciante_id, data, saldo, moeda, atualizado_em]
+      properties:
+        comerciante_id: { type: string }
+        data: { type: string, format: date }
+        saldo:
+          type: string
+          description: Σ(valor_signed) do dia (`numeric(18,2)`), string decimal.
+          pattern: '^-?[0-9]{1,16}\.[0-9]{2}$'
+          example: "107.50"
+        moeda: { type: string, enum: [BRL] }
+        atualizado_em: { type: string, format: date-time }
+
+  responses:
+    Problem400:
+      description: "Requisição malformada (ex.: `Idempotency-Key` ausente ou cabeçalho inválido)."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Problem422:
+      description: Payload válido em formato, mas inválido no domínio (tipo/valor/data/moeda).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Problem429:
+      description: Rate limit excedido.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Problem503:
+      description: "Serviço indisponível (observado pelo gateway). Nota: indisponibilidade do consolidado ou do broker NÃO produz 503 no POST (RNF#1)."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

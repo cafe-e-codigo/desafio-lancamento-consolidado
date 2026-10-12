@@ -1,0 +1,162 @@
+<mxfile host="Electron">
+  <diagram name="C4-N3-Componentes" id="verety-c4-n3">
+    <mxGraphModel dx="6560" dy="2646" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n3-title" parent="1" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" value="Verety: C4 Nível 3 (Componentes e Fronteiras)" vertex="1">
+          <mxGeometry height="30" width="700" x="-1150" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-note" parent="1" style="text;html=1;fontSize=11;align=left;verticalAlign=top;fontColor=#666666;" value="Fronteiras: write side (lancamentos) × read side (consolidado), integrados SÓ por evento. Libs compartilhadas = reuso de código (não serviço novo). Direção: componente→recurso." vertex="1">
+          <mxGeometry height="40" width="1200" x="-1150" y="112" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-b-lanc" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#0B5394;dashed=1;dashPattern=8 4;fontSize=14;fontStyle=1;align=center;verticalAlign=top;spacing=10;strokeWidth=2;" value="Serviço de Lançamentos (write side)" vertex="1">
+          <mxGeometry height="560" width="960" x="-1350" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-b-cons" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#0B5394;dashed=1;dashPattern=8 4;fontSize=14;fontStyle=1;align=center;verticalAlign=top;spacing=10;strokeWidth=2;" value="Serviço de Consolidado (read side)" vertex="1">
+          <mxGeometry height="740" width="1150" x="-290" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-b-shared" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#B46504;dashed=1;dashPattern=4 2;fontSize=12;fontStyle=1;align=center;verticalAlign=top;spacing=8;strokeWidth=2;" value="Libs compartilhadas (reuso de código, NÃO é serviço)" vertex="1">
+          <mxGeometry height="160" width="1060" x="-1450" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-api" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;LancamentoController (REST)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;POST /api/v1/lancamentos → 201 (Location)&lt;br&gt;Valida schema/valor/tipo; exige Idempotency-Key.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="280" x="-1290" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-idem" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;IdempotencyFilter&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Idempotency-Key → event_id determinístico (ADR-005).&lt;br&gt;Retry do cliente não duplica.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="300" x="-730" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-svc" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;LancamentoService (write)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Regra de negócio. Abre UMA transação: INSERT lancamento + INSERT outbox. COMMIT ⇒ 201.&lt;br&gt;Broker FORA do request path (RNF#1).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="300" x="-1300" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-outboxrepo" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;OutboxRepository&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Persiste a linha de outbox (PENDING).&lt;br&gt;Estados: PENDING→PUBLISHED; falha→FAILED (terminal+alarme).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="300" x="-730" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-relay" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;OutboxRelay (@Scheduled)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;SELECT … FOR UPDATE SKIP LOCKED; publica com mandatory + confirm por delivery_tag.&lt;br&gt;poll ≤ 200ms.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="300" x="-1310" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-pub" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;EventPublisher (AMQP)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Publica LancamentoCriado (delivery_mode=2); trata basic.return (rota não-casada ⇒ FAILED/retry).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="300" x="-730" y="595" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-consumer" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;EventConsumer (AMQP listener)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;prefetch=10; ack SÓ após COMMIT. Classifica erro (taxonomia transiente×veneno).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="420" x="-250" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-dedup" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;IdempotencyGuard&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;1 SQL: processed_event ON CONFLICT (event_id,data) DO NOTHING, ledger (dedup+incremento na MESMA linha, valor_signed).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="440" x="330" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-consol" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;ConsolidacaoService&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Append-only no ledger processed_event; dinheiro numeric(18,2). Fim da contenção da linha quente.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="400" x="-250" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-rollup" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;RollupJob&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Micro-batch: soma incrementos → saldo_diario (1 UPDATE por {comerciante,data} por janela).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="430" x="340" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-query" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#23A2D9;strokeColor=#0E7DAD;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;SaldoQueryController (REST)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;GET /api/v1/consolidado/{id}?data=YYYY-MM-DD&lt;br&gt;resposta: valor + status (aberto/fechado) + atualizado_em.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="410" x="-250" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-read" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;SaldoReadThrough (single-flight)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Lê Redis; miss ⇒ read-through saldo_diario com single-flight (anti stampede). Redis = derivado.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="430" x="340" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-cal" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;CalendarioService (event-time)&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;data_negocio + TZ America/Sao_Paulo; watermark de fechamento (ADR-012).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="690" x="-160" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-libsec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#B46504;strokeColor=#8A4A03;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;security-lib&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Middleware JWT (iss/aud/exp/alg) + ownership merchant_id (BOLA) + política-como-dado (ADR-008).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="300" x="-1390" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-libtrace" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#B46504;strokeColor=#8A4A03;fontColor=#ffffff;fontSize=12;align=center;arcSize=10;" value="&lt;b&gt;tracing-lib&lt;/b&gt;&lt;div style=&quot;font-size:11px&quot;&gt;correlation_id no envelope; logs JSON; X-Ray (ADR-009).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="300" x="-730" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-e-api-svc" edge="1" parent="1" source="n3-api" style="endArrow=blockThin;html=1;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-svc" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n3-e-idem-svc" edge="1" parent="1" source="n3-idem" style="endArrow=blockThin;html=1;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-svc" value="">
+          <mxGeometry relative="1" x="0.065" as="geometry">
+            <Array as="points">
+              <mxPoint x="-960" y="320" />
+              <mxPoint x="-960" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-svc-outbox" edge="1" parent="1" source="n3-svc" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-outboxrepo" value="tx">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-870" y="480" />
+              <mxPoint x="-870" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-relay-outbox" edge="1" parent="1" source="n3-relay" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-outboxrepo" value="SKIP LOCKED">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-1150" y="560" />
+              <mxPoint x="-580" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-relay-pub" edge="1" parent="1" source="n3-relay" style="endArrow=blockThin;html=1;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-pub" value="">
+          <mxGeometry relative="1" x="-0.1097" as="geometry">
+            <Array as="points">
+              <mxPoint x="-860" y="660" />
+              <mxPoint x="-860" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-pub-cons" edge="1" parent="1" source="n3-pub" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-consumer" value="LancamentoCriado [AMQP]">
+          <mxGeometry relative="1" x="0.0679" as="geometry">
+            <Array as="points">
+              <mxPoint x="-340" y="650" />
+              <mxPoint x="-340" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-cons-dedup" edge="1" parent="1" source="n3-consumer" style="endArrow=blockThin;html=1;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-dedup" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="300" />
+              <mxPoint x="350" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-dedup-consol" edge="1" parent="1" source="n3-dedup" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-consol" value="mesma tx">
+          <mxGeometry relative="1" x="0.0984" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="370" />
+              <mxPoint x="-30" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-consol-rollup" edge="1" parent="1" source="n3-consol" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-rollup" value="incrementos">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="360" y="450" />
+              <mxPoint x="360" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-query-read" edge="1" parent="1" source="n3-query" style="endArrow=blockThin;html=1;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n3-read" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="610" />
+              <mxPoint x="350" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-rollup-cal" edge="1" parent="1" source="n3-rollup" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" target="n3-cal" value="fecha dia (watermark)">
+          <mxGeometry relative="1" x="0.5493" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="810" y="450" />
+              <mxPoint x="810" y="840" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3-e-read-cal" edge="1" parent="1" source="n3-read" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" target="n3-cal" value="data_negocio">
+          <mxGeometry relative="1" x="0.3898" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="690" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

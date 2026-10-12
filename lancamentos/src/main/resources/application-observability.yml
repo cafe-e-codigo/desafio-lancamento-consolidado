@@ -1,0 +1,23 @@
+# Verety: Observabilidade (ADR-009). Serviço: lançamentos.
+# Perfil: ative com SPRING_PROFILES_ACTIVE=...,observability.
+# Micrometer/actuator apenas (sem APM pago, sem nó novo). Prometheus registry não está no reactor:
+# exponha as métricas pelo endpoint nativo /actuator/metrics.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
+
+verety:
+  observability:
+    # Defasagem (s) do PENDING mais antigo acima da qual o health do outbox fica DOWN (limiar com responsável).
+    outbox:
+      lag-warn-seconds: ${VERETY_OUTBOX_LAG_WARN_SECONDS:300}
+      terminal-down: ${VERETY_OUTBOX_TERMINAL_DOWN:true}

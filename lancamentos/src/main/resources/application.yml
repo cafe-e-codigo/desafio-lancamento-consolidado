@@ -1,0 +1,52 @@
+# Verety: Serviço de Lançamentos (write-side, CQRS)
+# Base de infraestrutura; as chaves de negócio vêm nos perfis abaixo.
+# Nada de literal sensível: tudo por variável de ambiente (coerente com o docker-compose).
+spring:
+  application:
+    name: verety-lancamentos
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/verety}
+    username: ${SPRING_DATASOURCE_USERNAME:verety}
+    password: ${SPRING_DATASOURCE_PASSWORD:verety}
+    hikari:
+      pool-name: lancamentos-pool
+      maximum-pool-size: ${SPRING_DATASOURCE_POOL_MAX:10}
+
+  jpa:
+    # Postgres é a fonte de verdade; o schema é gerido por Flyway: nunca por Hibernate.
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:verety}
+    password: ${SPRING_RABBITMQ_PASSWORD:verety}
+    # Outbox → broker: publicação confiável (ADR-003/ADR-007). Confirma por delivery_tag; returns para rota não-casada.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

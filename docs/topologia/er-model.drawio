@@ -1,0 +1,73 @@
+<mxfile host="Electron">
+  <diagram name="ER: Verety" id="er-verety-001">
+    <mxGraphModel dx="1325" dy="714" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=left;fontSize=16;fontStyle=1;fontColor=#1A1A1A;" value="Verety: Modelo Entidade-Relacionamento (Postgres) · monocomércio · CQRS lógico (2 schemas, 0 FK cross-schema)" vertex="1">
+          <mxGeometry height="30" width="1100" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="sb-write" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#1F6FEB;fontColor=#1F6FEB;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;dashPattern=8 4;strokeWidth=2;fontStyle=1;" value="BOUNDED CONTEXT: lancamentos (write-side)" vertex="1">
+          <mxGeometry height="380" width="680" x="40" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="sb-read" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#2DA44E;fontColor=#2DA44E;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;dashPattern=8 4;strokeWidth=2;fontStyle=1;" value="BOUNDED CONTEXT: consolidado (read-side / projeção)" vertex="1">
+          <mxGeometry height="640" width="800" x="760" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="t_lancamento" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#DDEBFF;strokeColor=#1F6FEB;fontSize=11;fontColor=#0B2545;" value="&lt;b&gt;lancamentos.lancamento&lt;/b&gt; (PARTITION BY RANGE data)&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (comerciante_id, data, id)&lt;br&gt;&lt;b&gt;UQ&lt;/b&gt; (comerciante_id, data, transaction_id)  &lt;i&gt;dedup de origem&lt;/i&gt;&lt;br&gt;──────────&lt;br&gt;id &amp;nbsp;&amp;nbsp;bigint IDENTITY&lt;br&gt;transaction_id &amp;nbsp;uuid &amp;nbsp;(Idempotency-Key)&lt;br&gt;comerciante_id &amp;nbsp;uuid&lt;br&gt;data &amp;nbsp;date &amp;nbsp;&lt;i&gt;(data de negócio)&lt;/i&gt;&lt;br&gt;tipo &amp;nbsp;text CHECK (CREDITO|DEBITO)&lt;br&gt;valor &amp;nbsp;&lt;b&gt;numeric(18,2)&lt;/b&gt; CHECK(&amp;gt;0)&lt;br&gt;criado_em &amp;nbsp;timestamptz DEFAULT now()&lt;br&gt;──────────&lt;br&gt;IDX (comerciante_id, data)" vertex="1">
+          <mxGeometry height="230" width="300" x="70" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="t_outbox" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#DDEBFF;strokeColor=#1F6FEB;fontSize=11;fontColor=#0B2545;" value="&lt;b&gt;lancamentos.outbox&lt;/b&gt; (Transactional Outbox)&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (id)&lt;br&gt;&lt;b&gt;UQ&lt;/b&gt; (event_id)  &lt;i&gt;1 evento/linha&lt;/i&gt;&lt;br&gt;──────────&lt;br&gt;id &amp;nbsp;bigint IDENTITY&lt;br&gt;aggregate_id &amp;nbsp;bigint → lancamento.id (lógica)&lt;br&gt;event_id &amp;nbsp;uuid (= transaction_id)&lt;br&gt;event_type &amp;nbsp;text&lt;br&gt;payload &amp;nbsp;jsonb&lt;br&gt;status &amp;nbsp;text PENDING|PUBLISHED|FAILED&lt;br&gt;attempts &amp;nbsp;int DEFAULT 0&lt;br&gt;next_attempt &amp;nbsp;timestamptz&lt;br&gt;locked_until &amp;nbsp;timestamptz&lt;br&gt;created_at / published_at&lt;br&gt;──────────&lt;br&gt;IDX parcial (next_attempt,id) WHERE PENDING&lt;br&gt;IDX parcial (created_at) WHERE FAILED" vertex="1">
+          <mxGeometry height="280" width="300" x="400" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="t_processed" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#DDF5E3;strokeColor=#2DA44E;fontSize=11;fontColor=#0B3D1F;" value="&lt;b&gt;consolidado.processed_event&lt;/b&gt; (PARTITION BY RANGE data)&lt;br&gt;&lt;i&gt;ledger durável = dedup idempotente (sem TTL)&lt;/i&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (event_id, data)&lt;br&gt;──────────&lt;br&gt;event_id &amp;nbsp;uuid&lt;br&gt;comerciante_id &amp;nbsp;uuid&lt;br&gt;data &amp;nbsp;date&lt;br&gt;valor_signed &amp;nbsp;&lt;b&gt;numeric(18,2)&lt;/b&gt; (+crédito/−débito)&lt;br&gt;processado_em &amp;nbsp;timestamptz&lt;br&gt;──────────&lt;br&gt;IDX (comerciante_id, data)&lt;br&gt;IDX (processado_em)  &lt;i&gt;watermark rollup&lt;/i&gt;&lt;br&gt;&lt;br&gt;&lt;i&gt;ON CONFLICT(event_id,data) DO NOTHING → 1×&lt;/i&gt;" vertex="1">
+          <mxGeometry height="230" width="340" x="790" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="t_saldo" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#DDF5E3;strokeColor=#2DA44E;fontSize=11;fontColor=#0B3D1F;" value="&lt;b&gt;consolidado.saldo_diario&lt;/b&gt; (projeção)&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (comerciante_id, data)  &lt;i&gt;= UQ do ON CONFLICT&lt;/i&gt;&lt;br&gt;──────────&lt;br&gt;comerciante_id &amp;nbsp;uuid&lt;br&gt;data &amp;nbsp;date&lt;br&gt;valor &amp;nbsp;&lt;b&gt;numeric(18,2)&lt;/b&gt; DEFAULT 0&lt;br&gt;atualizado_em &amp;nbsp;timestamptz&lt;br&gt;&lt;br&gt;&lt;i&gt;escrito SÓ pelo rollup (1 UPDATE por grupo)&lt;/i&gt;" vertex="1">
+          <mxGeometry height="180" width="340" x="1170" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="t_rollup" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#EAF5EE;strokeColor=#2DA44E;fontSize=11;fontColor=#0B3D1F;" value="&lt;b&gt;consolidado.rollup_controle&lt;/b&gt; (watermark)&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (id) singleton CHECK(id)&lt;br&gt;──────────&lt;br&gt;ultimo_processado_em &amp;nbsp;timestamptz&lt;br&gt;&lt;i&gt;estado do job, não dado de negócio&lt;/i&gt;" vertex="1">
+          <mxGeometry height="130" width="340" x="790" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="t_descarte" parent="1" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#EAF5EE;strokeColor=#2DA44E;fontSize=11;fontColor=#0B3D1F;" value="&lt;b&gt;consolidado.descarte_logado&lt;/b&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; (id)&lt;br&gt;──────────&lt;br&gt;event_id &amp;nbsp;uuid (nullable)&lt;br&gt;motivo &amp;nbsp;text (POISON|SEM_DESTINO|REPLAY_OK…)&lt;br&gt;detalhe &amp;nbsp;jsonb&lt;br&gt;correlation_id &amp;nbsp;uuid&lt;br&gt;criado_em &amp;nbsp;timestamptz&lt;br&gt;──────────&lt;br&gt;IDX (criado_em)&lt;br&gt;&lt;i&gt;descarte NUNCA silencioso&lt;/i&gt;" vertex="1">
+          <mxGeometry height="200" width="340" x="1170" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="t_lancamento" style="endArrow=open;html=1;rounded=0;strokeColor=#1F6FEB;strokeWidth=1.5;dashed=1;" target="t_outbox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1l" parent="1" style="text;html=1;fontSize=10;fontColor=#1F6FEB;align=center;" value="1:1 lógica (aggregate_id)" vertex="1">
+          <mxGeometry height="20" width="70" x="345" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="t_outbox" style="endArrow=block;html=1;rounded=0;strokeColor=#8250DF;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="t_processed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2l" parent="1" style="text;html=1;fontSize=10;fontColor=#8250DF;align=center;" value="evento (AMQP, at-least-once)" vertex="1">
+          <mxGeometry height="20" width="80" x="710" y="95" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="t_processed" style="endArrow=open;html=1;rounded=0;strokeColor=#2DA44E;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="t_rollup">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3l" parent="1" style="text;html=1;fontSize=10;fontColor=#2DA44E;align=center;" value="SUM(valor_signed) GROUP BY comerciante,data" vertex="1">
+          <mxGeometry height="20" width="160" x="900" y="345" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="t_processed" style="endArrow=block;html=1;rounded=0;strokeColor=#2DA44E;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="t_saldo">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4l" parent="1" style="text;html=1;fontSize=10;fontColor=#2DA44E;align=center;" value="rollup ON CONFLICT DO UPDATE (1×/grupo/janela)" vertex="1">
+          <mxGeometry height="40" width="40" x="1130" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="t_rollup" style="endArrow=open;html=1;rounded=0;strokeColor=#6E7781;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="t_descarte">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5l" parent="1" style="text;html=1;fontSize=10;fontColor=#6E7781;align=center;" value="descarte/rejeição logada" vertex="1">
+          <mxGeometry height="30" width="40" x="1135" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="note" parent="1" style="shape=note;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=8;fillColor=#FFF8C5;strokeColor=#D4A72C;fontSize=11;fontColor=#4D3800;" value="NOTA DE FRONTEIRA (CQRS lógico): 1 banco físico · 2 schemas · ZERO FK cross-schema. Lançamentos NÃO escreve em consolidado, e vice-versa; o acoplamento é SÓ via evento (fila). Invariante independente (SQL fora da app): saldo_diario.valor == SUM(processed_event.valor_signed) por (comerciante,data); N(consumido)=COUNT(DISTINCT event_id). Fonte de verdade = Postgres; Redis = cache read-through (single-flight, ADR-006)." vertex="1">
+          <mxGeometry height="120" width="680" x="70" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="text;html=1;align=left;fontSize=11;fontColor=#24292F;" value="&lt;b&gt;Legenda&lt;/b&gt;&lt;br&gt;PK = chave primária · UQ = UNIQUE constraint (dedup) · IDX = índice&lt;br&gt;Azul = write-side (lancamentos) · Verde = read-side (consolidado)&lt;br&gt;Evento em roxo (AMQP) · cinza = log de descarte" vertex="1">
+          <mxGeometry height="90" width="600" x="790" y="560" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

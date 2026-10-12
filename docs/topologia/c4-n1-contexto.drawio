@@ -1,0 +1,52 @@
+<mxfile host="Electron">
+  <diagram name="C4-N1-Contexto" id="verety-c4-n1">
+    <mxGraphModel dx="2293" dy="1236" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n1-title" parent="1" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" value="Verety: C4 Nível 1 (Contexto)" vertex="1">
+          <mxGeometry height="30" width="500" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-note" parent="1" style="text;html=1;fontSize=11;align=left;verticalAlign=top;fontColor=#666666;" value="Mono-comerciante · Java · sem frontend · 2 serviços (Lançamentos | Consolidado). Diagrama C4 nível 1: quem usa e com que sistemas externos o Verety fala." vertex="1">
+          <mxGeometry height="40" width="760" x="40" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-comerciante" parent="1" style="shape=mxgraph.c4.person2;html=1;whiteSpace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#ffffff;fontSize=14;align=center;" value="&lt;b&gt;Comerciante&lt;/b&gt;&lt;div&gt;[Person]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Registra débitos/créditos&lt;br&gt;e consulta o saldo diário&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="200" x="40" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-verety" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#1168BD;strokeColor=#0B5394;fontColor=#ffffff;fontSize=14;align=center;arcSize=10;" value="&lt;b&gt;Verety&lt;/b&gt;&lt;div&gt;[Software System]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Controle de lançamentos + saldo diário consolidado.&lt;br&gt;Internamente: Serviço de Lançamentos + Serviço de Consolidado (CQRS).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="220" width="360" x="420" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-cognito" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#8C8496;strokeColor=#736782;fontColor=#ffffff;fontSize=13;align=center;arcSize=10;" value="&lt;b&gt;Amazon Cognito / IdP Corporativo&lt;/b&gt;&lt;div&gt;[External System]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;IdP gerenciado (OAuth2/OIDC/JWT).&lt;br&gt;Emite e valida tokens (JWKS).&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="260" x="890" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-obs" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#8C8496;strokeColor=#736782;fontColor=#ffffff;fontSize=13;align=center;arcSize=10;" value="&lt;b&gt;AWS CloudWatch / CloudTrail / X-Ray&lt;/b&gt;&lt;div&gt;[External System]&lt;/div&gt;&lt;br&gt;&lt;div style=&quot;font-size:11px&quot;&gt;Observabilidade e auditoria (ADR-009).&lt;br&gt;Métricas de outbox/backlog, traces, trilha.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="260" x="900" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="n1-rel-use" edge="1" parent="1" source="n1-comerciante" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="n1-verety" value="Usa [HTTPS / JSON]">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="420" />
+              <mxPoint x="280" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1-rel-oidc" edge="1" parent="1" source="n1-verety" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" target="n1-cognito" value="Autentica [OIDC / JWT]">
+          <mxGeometry relative="1" x="-0.2558" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1050" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1-rel-obs" edge="1" parent="1" source="n1-verety" style="endArrow=blockThin;html=1;fontSize=11;fontColor=#404040;strokeWidth=2;strokeColor=#828282;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" target="n1-obs" value="Envia métricas/traces/trilha [HTTPS]">
+          <mxGeometry relative="1" x="-0.3171" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1050" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

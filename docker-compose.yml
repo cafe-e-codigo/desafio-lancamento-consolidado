@@ -1,0 +1,171 @@
+# Verety: orquestração local
+# Fonte do DDL: docs/schema.sql.
+# Sobe a infra (postgres 16 · rabbitmq 3.13-management · redis 7) + os 2 serviços CQRS.
+# Nenhum literal sensível: tudo por variável de ambiente, com default apontando p/ os nomes de serviço.
+name: verety
+
+# ---------------------------------------------------------------------------
+# Credenciais de DESENVOLVIMENTO local. Em Alvo → Secrets Manager/KMS (ADR-010).
+# Nunca versionar `.env` real (o .gitignore já o exclui).
+# ---------------------------------------------------------------------------
+x-pg-env: &pg-env
+  POSTGRES_DB: verety
+  POSTGRES_USER: verety
+  POSTGRES_PASSWORD: verety
+
+services:
+  # -------------------------------------------------------------------------
+  # Banco único (fonte de verdade). Dois ESQUEMAS = dois contextos CQRS,
+  # ZERO FK cross-schema (ADR-001/002). Migração aplicada por Flyway (por serviço).
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    environment:
+      <<: *pg-env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verety -d verety"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [verety]
+
+  # -------------------------------------------------------------------------
+  # Broker: quorum/retry/DLX/DLQ (ADR-007). Fora do caminho da request (201 no COMMIT).
+  # -------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: verety
+      RABBITMQ_DEFAULT_PASS: verety
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # console de gestão
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [verety]
+
+  # -------------------------------------------------------------------------
+  # Cache derivado (read-through + single-flight + TTL jitter: ADR-006).
+  # Descartável: Postgres é a fonte; eviction não perde dado.
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [verety]
+
+  # -------------------------------------------------------------------------
+  # Write-side. Grava lancamento+outbox na MESMA tx; relay @Scheduled (SKIP LOCKED).
+  # Flyway LIGADO e ISOLADO por schema: o write-side gerencia SÓ o schema
+  # `lancamentos` (history `lancamentos.flyway_schema_history`). Assim o schema
+  # físico `public` NUNCA é visto como "não-vazio" pelo read-side (fim do
+  # FlywayException). Um banco físico, dois contextos CQRS (ADR-001/002).
+  # -------------------------------------------------------------------------
+  lancamentos:
+    build:
+      # Contexto = raiz: o build Maven multi-módulo precisa do pom pai + módulo common.
+      context: .
+      dockerfile: lancamentos/Dockerfile
+    environment:
+      SPRING_APPLICATION_NAME: verety-lancamentos
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/verety
+      SPRING_DATASOURCE_USERNAME: verety
+      SPRING_DATASOURCE_PASSWORD: verety
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: verety
+      SPRING_RABBITMQ_PASSWORD: verety
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_SCHEMAS: lancamentos
+      SPRING_FLYWAY_DEFAULT_SCHEMA: lancamentos
+      SPRING_FLYWAY_TABLE: flyway_schema_history
+      # Perfis: ativa observabilidade (exposição /actuator/metrics: ADR-009) + segurança de consumo
+      # (ADR-008). Sem isto, application-observability.yml / application-security.yml NÃO carregam.
+      SPRING_PROFILES_ACTIVE: security,observability
+      # SEGREDO JWT = PLACEHOLDER DE HARNESS (NÃO é segredo canônico de produção). Em Alvo →
+      # Cognito/JWKS (RS256) ou Secret gerenciado (ADR-008 item 3). Sem valor, a API sobe fail-closed (403).
+      VERETY_JWT_HMAC_SECRET: "harness-placeholder-do-not-use-in-prod-0123456789abcdef"
+      SERVER_PORT: "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/liveness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [verety]
+
+  # -------------------------------------------------------------------------
+  # Read-side. Consome evento → ledger idempotente → rollup → saldo_diario.
+  # Flyway LIGADO via env (default do app é false) e ISOLADO por schema: gerencia
+  # SÓ `consolidado` (history `consolidado.flyway_schema_history`). Não enxerga o
+  # `public` nem a history do write-side → sem colisão no mesmo banco físico.
+  # -------------------------------------------------------------------------
+  consolidado:
+    build:
+      # Contexto = raiz: o build Maven multi-módulo precisa do pom pai + módulo common.
+      context: .
+      dockerfile: consolidado/Dockerfile
+    environment:
+      SPRING_APPLICATION_NAME: verety-consolidado
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/verety
+      SPRING_DATASOURCE_USERNAME: verety
+      SPRING_DATASOURCE_PASSWORD: verety
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+      SPRING_RABBITMQ_USERNAME: verety
+      SPRING_RABBITMQ_PASSWORD: verety
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_SCHEMAS: consolidado
+      SPRING_FLYWAY_DEFAULT_SCHEMA: consolidado
+      SPRING_FLYWAY_TABLE: flyway_schema_history
+      # Perfis: ativa observabilidade (exposição /actuator/metrics: ADR-009) + segurança de consumo
+      # (ADR-008). Sem isto, application-observability.yml / application-security.yml NÃO carregam.
+      SPRING_PROFILES_ACTIVE: security,observability
+      # SEGREDO JWT = PLACEHOLDER DE HARNESS (NÃO é segredo canônico de produção). Em Alvo →
+      # Cognito/JWKS (RS256) ou Secret gerenciado (ADR-008 item 3). Sem valor, a API sobe fail-closed (403).
+      VERETY_JWT_HMAC_SECRET: "harness-placeholder-do-not-use-in-prod-0123456789abcdef"
+      SERVER_PORT: "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health/liveness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [verety]
+
+volumes:
+  pgdata:
+
+networks:
+  verety:
+    driver: bridge
